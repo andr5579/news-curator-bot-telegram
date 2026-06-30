@@ -1,0 +1,303 @@
+{
+  "name": "Бот с кнопками v2",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        704,
+        608
+      ],
+      "id": "72b655ad-c4cd-4c1e-b9f6-137f42f5a008"
+    },
+    {
+      "parameters": {
+        "url": "https://www.ixbt.com/export/rss.xml",
+        "options": {}
+      },
+      "name": "RSS IT1",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        960,
+        512
+      ],
+      "id": "7a0a07f9-ffe3-4032-8d65-22b5fe104738"
+    },
+    {
+      "parameters": {
+        "url": "https://www.playground.ru/rss/news.xml",
+        "options": {}
+      },
+      "name": "RSS Игры1",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        960,
+        720
+      ],
+      "id": "7f2eea65-a1ed-4089-96ba-576424d17250"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "condition-photo",
+              "leftValue": "={{ $json.enclosure.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "name": "filter.operator.notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Есть картинка?1",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        608
+      ],
+      "id": "463f868d-095e-4233-a9a8-0643fe7db00e"
+    },
+    {
+      "parameters": {
+        "operation": "limit"
+      },
+      "name": "Limit1",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 1,
+      "position": [
+        1424,
+        608
+      ],
+      "id": "05d34d29-b9c3-4c12-84d5-5f13de4c2959"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "llama-3.3-70b-versatile"
+            },
+            {
+              "name": "messages",
+              "value": "={{ [{\"role\":\"user\",\"content\":\"Ты редактор IT Telegram канала.\\n\\nПерепиши новость коротко и интересно для Telegram в формате:\\n\\n<b>Короткий заголовок</b>\\n\\nТекст 2-3 абзаца с эмодзи. Максимум 150 слов.\\n\\n#хештег1 #хештег2 #хештег3\\n\\nЕсли новость явно не про технологии (например еда, мода, кулинария) — ответь только: ПРОПУСТИТЬ\\n\\nНовость: \" + $json.title}] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Groq1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1648,
+        608
+      ],
+      "id": "c3908282-ab8f-433f-bf91-08acf146a90e",
+      "credentials": {
+        "groqApi": {
+          "id": "BsUEGKfS0VPnp2tt",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "condition-filter",
+              "leftValue": "={{ $json.choices[0].message.content }}",
+              "rightValue": "ПРОПУСТИТЬ",
+              "operator": {
+                "type": "string",
+                "operation": "notContains",
+                "name": "filter.operator.notContains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "IT фильтр?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1872,
+        608
+      ],
+      "id": "f3dca99c-7252-49b4-af9e-f404055f3d6f"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/YOUR_TELEGRAM_BOT_TOKEN/sendPhoto",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "@test_chnnelll"
+            },
+            {
+              "name": "photo",
+              "value": "={{ $('Есть картинка?1').item.json.enclosure.url.includes('ixbt') ? $('Есть картинка?1').item.json.enclosure.url : 'https://images.weserv.nl/?url=' + $('Есть картинка?1').item.json.enclosure.url + '&output=jpg' }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $('Groq1').item.json.choices[0].message.content }}\n\n"
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Отправить в канал1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2096,
+        608
+      ],
+      "id": "14435c87-1eed-4f76-ae5d-83070cc6fa45"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS IT1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Игры1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS IT1": {
+      "main": [
+        [
+          {
+            "node": "Есть картинка?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Игры1": {
+      "main": [
+        [
+          {
+            "node": "Есть картинка?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Есть картинка?1": {
+      "main": [
+        [
+          {
+            "node": "Limit1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit1": {
+      "main": [
+        [
+          {
+            "node": "Groq1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq1": {
+      "main": [
+        [
+          {
+            "node": "IT фильтр?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IT фильтр?1": {
+      "main": [
+        [
+          {
+            "node": "Отправить в канал1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "979ab6a9-0448-4271-b9b4-b740582f49ac",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5ac17c6d93363c48c9209501ea70a94368b8be11341024caa43dabb53eae1ec"
+  },
+  "nodeGroups": [],
+  "id": "803BhoW0qTGaoB2E",
+  "tags": []
+}
